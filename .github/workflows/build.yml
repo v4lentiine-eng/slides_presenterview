@@ -11,6 +11,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     
     strategy:
+      fail-fast: false
       matrix:
         os: [windows-latest, macos-latest]
 
@@ -22,13 +23,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
 
       - name: Install Dependencies
         run: npm install
 
       - name: Build Executables
         run: npm run build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4

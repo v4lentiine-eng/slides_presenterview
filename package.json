@@ -1,6 +1,7 @@
 {
   "name": "slides-presenterview",
   "version": "1.0.0",
+  "author": "v4lentiine-eng",
   "description": "Electron PDF Presenter View App",
   "main": "main.js",
   "scripts": {
@@ -11,15 +12,14 @@
   "build": {
     "appId": "com.slides.presenterview",
     "productName": "Slides Presenterview",
+    "publish": "never",
     "directories": {
       "output": "dist"
     },
     "win": {
-      "icon": "icon.ico",
       "target": ["nsis", "portable"]
     },
     "mac": {
-      "icon": "icon.icns",
       "target": ["dmg", "zip"],
       "category": "public.app-category.productivity"
     },
