@@ -1,0 +1,37 @@
+{
+  "name": "slides-presenterview",
+  "version": "1.0.0",
+  "description": "Electron PDF Presenter View App",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "dist": "electron-builder"
+  },
+  "build": {
+    "appId": "com.slides.presenterview",
+    "productName": "Slides Presenterview",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "icon": "icon.ico",
+      "target": ["nsis", "portable"]
+    },
+    "mac": {
+      "icon": "icon.icns",
+      "target": ["dmg", "zip"],
+      "category": "public.app-category.productivity"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.13.3"
+  }
+}

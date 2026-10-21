@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Slides Presenterview</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    
+    body { 
+      background-color: #0F0F12; 
+      color: #F0F0F5; 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+      height: 100vh; 
+      display: flex; 
+      flex-direction: column; 
+      overflow: hidden; 
+    }
+    
+    header { 
+      height: 64px; 
+      background: #16161A; 
+      display: flex; 
+      align-items: center; 
+      padding: 0 20px; 
+      gap: 10px; 
+      border-bottom: 1px solid rgba(255, 255, 255, 0.07); 
+      flex-shrink: 0; 
+      z-index: 20; 
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    .app-logo {
+      width: 38px;
+      height: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      filter: drop-shadow(0 4px 10px rgba(255, 87, 34, 0.4));
+      margin-right: 4px;
+    }
+
+    .app-logo:hover {
+      transform: scale(1.12) rotate(2deg);
+      filter: drop-shadow(0 6px 16px rgba(255, 87, 34, 0.75));
+    }
+    
+    .file-tag { 
+      background: rgba(255, 255, 255, 0.05); 
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 6px 12px; 
+      border-radius: 8px; 
+      font-size: 12px; 
+      color: #8E8E9F; 
+      max-width: 160px; 
+      overflow: hidden; 
+      text-overflow: ellipsis; 
+      white-space: nowrap; 
+      transition: all 0.2s ease;
+    }
+    
+    .btn { 
+      background: rgba(255, 255, 255, 0.06); 
+      color: #E2E2EC; 
+      border: 1px solid rgba(255, 255, 255, 0.08); 
+      padding: 7px 12px; 
+      border-radius: 8px; 
+      font-weight: 600; 
+      cursor: pointer; 
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); 
+      font-size: 12px; 
+      display: inline-flex; 
+      align-items: center; 
+      justify-content: center; 
+      gap: 5px; 
+      outline: none;
+      backdrop-filter: blur(10px);
+    }
+
+    .btn:hover { 
+      background: rgba(255, 255, 255, 0.12); 
+      border-color: rgba(255, 255, 255, 0.2);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    }
+
+    .btn:active { transform: scale(0.96) translateY(0); }
+
+    .btn-orange { 
+      background: linear-gradient(135deg, #FF5722 0%, #E64A19 100%); 
+      border: none;
+      color: #FFF;
+      box-shadow: 0 4px 14px rgba(230, 74, 25, 0.35);
+    }
+
+    .btn-orange:hover { 
+      background: linear-gradient(135deg, #FF7043 0%, #F4511E 100%); 
+      box-shadow: 0 6px 18px rgba(230, 74, 25, 0.5);
+    }
+
+    .btn-sm { padding: 4px 8px; font-size: 11px; border-radius: 6px; }
+    
+    .btn-off { 
+      background: rgba(239, 83, 80, 0.15) !important; 
+      border-color: rgba(239, 83, 80, 0.4) !important; 
+      color: #EF5350 !important; 
+    }
+
+    .btn-active { 
+      background: linear-gradient(135deg, #FF5722 0%, #E64A19 100%) !important; 
+      color: #FFF !important; 
+      border-color: transparent !important;
+      box-shadow: 0 0 16px rgba(230, 74, 25, 0.5) !important;
+    }
+
+    .transition-box {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.04);
+      padding: 4px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 12px;
+    }
+
+    .select-input {
+      background: #111115;
+      color: #FFF;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      outline: none;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .nav-controls { display: flex; align-items: center; gap: 8px; margin: 0 auto; }
+
+    .num-input {
+      background: #111115;
+      color: #FFF;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 3px 6px;
+      border-radius: 6px;
+      font-size: 12px;
+      width: 44px;
+      text-align: center;
+      outline: none;
+      font-weight: bold;
+      transition: all 0.2s;
+    }
+
+    .num-input:focus, .text-input:focus { 
+      border-color: #FF5722; 
+      box-shadow: 0 0 8px rgba(255, 87, 34, 0.3);
+    }
+
+    .text-input {
+      background: #111115;
+      color: #FFF;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      outline: none;
+      width: 100%;
+      transition: all 0.2s;
+    }
+
+    .color-picker {
+      width: 26px;
+      height: 22px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: transparent;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: transform 0.2s;
+    }
+    .color-picker:hover { transform: scale(1.08); }
+
+    .body-container { flex: 1; display: flex; padding: 10px; gap: 0; overflow: hidden; position: relative; }
+    
+    .left-panel { 
+      width: 60%; 
+      display: flex; 
+      flex-direction: column; 
+      background: #141418; 
+      border-radius: 12px; 
+      padding: 10px; 
+      overflow: hidden; 
+      min-width: 250px; 
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
+      position: relative;
+      transition: width 0.15s cubic-bezier(0.16, 1, 0.3, 1), flex 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .current-slide-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+      gap: 8px;
+    }
+
+    .canvas-inline-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.04);
+      padding: 2px 8px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .tool-btn {
+      background: transparent;
+      border: none;
+      color: #E2E2EC;
+      font-size: 12px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-weight: 600;
+    }
+
+    .tool-btn:hover { background: rgba(255, 255, 255, 0.12); }
+    .tool-btn.active { background: #FF5722; color: #FFF; box-shadow: 0 0 8px rgba(255, 87, 34, 0.5); }
+
+    .tool-divider {
+      width: 1px;
+      height: 14px;
+      background: rgba(255, 255, 255, 0.15);
+      margin: 0 2px;
+    }
+
+    .right-panel { 
+      flex: 1; 
+      display: flex; 
+      flex-direction: column; 
+      min-width: 250px; 
+      overflow: hidden; 
+      transition: width 0.15s cubic-bezier(0.16, 1, 0.3, 1), flex 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .resizer-v { width: 10px; cursor: col-resize; background: transparent; transition: all 0.2s; z-index: 10; position: relative; }
+    .resizer-v:hover, .resizer-v.dragging { background: rgba(255, 87, 34, 0.4); box-shadow: 0 0 10px rgba(255, 87, 34, 0.5); }
+
+    .resizer-h { height: 10px; cursor: row-resize; background: transparent; transition: all 0.2s; z-index: 10; flex-shrink: 0; }
+    .resizer-h:hover, .resizer-h.dragging { background: rgba(255, 87, 34, 0.4); box-shadow: 0 0 10px rgba(255, 87, 34, 0.5); }
+
+    .canvas-box { 
+      flex: 1; 
+      display: flex; 
+      justify-content: center; 
+      align-items: center; 
+      position: relative; 
+      overflow: hidden; 
+      background: #000000; 
+      border-radius: 8px; 
+      width: 100%; 
+      height: 100%; 
+      min-height: 0;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+    }
+
+    canvas { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+
+    #transitionCanvas {
+      position: absolute;
+      z-index: 4;
+      pointer-events: none;
+      opacity: 0;
+      transform-origin: center center;
+    }
+    
+    #overlayCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 5;
+      pointer-events: auto;
+    }
+
+    .timer-panel { 
+      height: 180px; 
+      background: #1A1A20; 
+      border-radius: 10px; 
+      padding: 8px; 
+      display: flex; 
+      flex-direction: row; 
+      align-items: stretch;
+      gap: 8px; 
+      min-height: 120px; 
+      flex-shrink: 0; 
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      position: relative;
+    }
+
+    .timer-toggle-btn {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      z-index: 15;
+      padding: 4px 8px;
+      font-size: 11px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 6px;
+      color: #E2E2EC;
+    }
+
+    .timer-sidebar {
+      width: 220px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 8px;
+      padding-top: 36px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    .timer-sidebar.collapsed {
+      width: 0px;
+      padding: 0;
+      border: none;
+      opacity: 0;
+      pointer-events: none;
+      margin: 0;
+    }
+
+    .timer-row { 
+      display: flex; 
+      align-items: center; 
+      justify-content: space-between;
+      gap: 4px; 
+      width: 100%;
+    }
+
+    .timer-row .num-input {
+      width: 36px;
+      padding: 2px 4px;
+      font-size: 11px;
+    }
+    
+    .timer-canvas-container { 
+      flex: 1; 
+      width: 100%; 
+      height: 100%; 
+      overflow: hidden; 
+      position: relative; 
+    }
+    #timerCanvas { width: 100%; height: 100%; display: block; }
+
+    .timer-actions-right {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 6px;
+      padding: 4px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      flex-shrink: 0;
+    }
+
+    .timer-action-btn {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #E2E2EC;
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      transition: all 0.2s ease;
+      outline: none;
+    }
+
+    .timer-action-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.25);
+      transform: scale(1.03);
+    }
+
+    .timer-action-btn:active { transform: scale(0.96); }
+
+    .timer-action-start {
+      background: linear-gradient(135deg, rgba(76, 175, 80, 0.2) 0%, rgba(56, 142, 60, 0.3) 100%);
+      border-color: rgba(76, 175, 80, 0.4);
+      color: #81C784;
+    }
+
+    .timer-action-start:hover {
+      background: linear-gradient(135deg, rgba(76, 175, 80, 0.4) 0%, rgba(56, 142, 60, 0.5) 100%);
+      box-shadow: 0 0 10px rgba(76, 175, 80, 0.3);
+      color: #FFF;
+    }
+
+    .next-box { 
+      height: 45%; 
+      background: #1A1A20; 
+      border-radius: 12px; 
+      padding: 10px; 
+      display: flex; 
+      flex-direction: column; 
+      min-height: 0; 
+      flex-shrink: 0; 
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      transition: height 0.15s cubic-bezier(0.16, 1, 0.3, 1), flex 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .notes-box { 
+      flex: 1; 
+      background: #1A1A20; 
+      border-radius: 12px; 
+      padding: 10px; 
+      display: flex; 
+      flex-direction: column; 
+      min-height: 0; 
+      overflow: hidden; 
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .notes-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    
+    textarea { 
+      width: 100%; 
+      flex: 1; 
+      background: #111115; 
+      color: #E2E2EC; 
+      border: 1px solid rgba(255, 255, 255, 0.08); 
+      padding: 12px; 
+      border-radius: 8px; 
+      resize: none; 
+      font-size: 32px; 
+      outline: none; 
+      line-height: 1.4;
+      transition: border-color 0.2s;
+    }
+    textarea:focus { border-color: rgba(255, 87, 34, 0.5); }
+
+    .filmstrip { 
+      height: 155px; 
+      background: #16161A; 
+      margin: 0 10px 10px 10px; 
+      border-radius: 12px; 
+      display: flex; 
+      align-items: center; 
+      padding: 10px 14px; 
+      gap: 12px; 
+      overflow-x: auto; 
+      flex-shrink: 0; 
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      outline: none;
+    }
+
+    .filmstrip:focus {
+      border-color: rgba(41, 182, 246, 0.3);
+    }
+    
+    .thumb-card { 
+      min-width: 130px; 
+      height: 128px; 
+      background: #202026; 
+      border-radius: 8px; 
+      display: flex; 
+      flex-direction: column; 
+      align-items: center; 
+      justify-content: center; 
+      cursor: pointer; 
+      border: 2px solid transparent; 
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); 
+      position: relative;
+    }
+    
+    .thumb-card:hover { 
+      background: #2A2A32; 
+      transform: translateY(-2px);
+    }
+    
+    .thumb-card.active { 
+      border-color: #FF5722; 
+      background: #2D1E1B; 
+      box-shadow: 0 0 14px rgba(255, 87, 34, 0.4);
+    }
+
+    .thumb-card.selected {
+      border-color: #29B6F6;
+      background: #1A2833;
+      box-shadow: 0 0 10px rgba(41, 182, 246, 0.4);
+    }
+
+    .thumb-badge {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      background: rgba(255, 87, 34, 0.85);
+      color: #FFF;
+      font-size: 9px;
+      font-weight: 800;
+      padding: 2px 4px;
+      border-radius: 4px;
+      display: none;
+    }
+
+    .thumb-card canvas { height: 85px; width: auto; max-width: 110px; border-radius: 4px; pointer-events: none; }
+
+    body.presentation-mode header,
+    body.presentation-mode .right-panel, 
+    body.presentation-mode .filmstrip, 
+    body.presentation-mode .timer-panel, 
+    body.presentation-mode .resizer-v, 
+    body.presentation-mode .resizer-h,
+    body.presentation-mode .current-slide-header,
+    body.presentation-mode #lblCurrentSlide { display: none !important; }
+
+    body.presentation-mode .body-container { height: 100vh; padding: 0; margin: 0; }
+    body.presentation-mode .left-panel { width: 100vw !important; height: 100vh !important; background: #000; border-radius: 0; padding: 0; border: none; }
+    body.presentation-mode .canvas-box { border-radius: 0; box-shadow: none; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="app-logo" title="Slides Presenterview">
+      <svg width="38" height="38" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="logoG1" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#FF7043" />
+            <stop offset="100%" stop-color="#D84315" />
+          </linearGradient>
+          <linearGradient id="logoG2" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#FFA726" />
+            <stop offset="100%" stop-color="#FF5722" />
+          </linearGradient>
+          <linearGradient id="logoG3" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.9" />
+            <stop offset="100%" stop-color="#ECEFF1" stop-opacity="0.4" />
+          </linearGradient>
+        </defs>
+        <rect x="6" y="8" width="28" height="20" rx="3" fill="url(#logoG1)" opacity="0.6" transform="rotate(-6 20 18)" />
+        <rect x="11" y="12" width="28" height="20" rx="3" fill="url(#logoG2)" opacity="0.85" transform="rotate(-2 25 22)" />
+        <rect x="14" y="16" width="28" height="20" rx="3" fill="#18181C" stroke="url(#logoG3)" stroke-width="1.5" />
+        <rect x="17" y="19" width="22" height="14" rx="1.5" fill="url(#logoG2)" />
+        <polygon points="25,23 32,26 25,29" fill="#FFFFFF" />
+        <path d="M22 37 L28 37 M25 36 L25 41 M20 41 L30 41" stroke="#FF7043" stroke-width="2" stroke-linecap="round" />
+      </svg>
+    </div>
+
+    <div class="file-tag" id="lblFileTag">No File Opened</div>
+    <button class="btn btn-orange" id="btnOpenFile" onclick="openFileDialog()">📂 Open PDF</button>
+
+    <div class="transition-box">
+      <span style="color:#AAA; font-weight:600;">✨ Transition:</span>
+      <select id="selectTransition" class="select-input" onchange="applyTransitionToSelected(this.value)">
+        <option value="none">None</option>
+        <option value="fade">Fade (Dissolve)</option>
+        <option value="slide-left">Slide Left</option>
+        <option value="slide-right">Slide Right</option>
+        <option value="zoom">Zoom In</option>
+      </select>
+    </div>
+
+    <button class="btn" id="btnToggleCurrent" onclick="toggleCurrentPanel()">🖼️ Current</button>
+    <button class="btn" id="btnToggleNext" onclick="toggleNextPanel()">⏭️ Next Slide</button>
+    <button class="btn" id="btnToggleTimer" onclick="toggleTimer()">⏱️ Timer</button>
+    <button class="btn" id="btnToggleNotes" onclick="toggleNotes()">📝 Speaker Notes</button>
+
+    <div class="nav-controls">
+      <button class="btn" onclick="prevPage()">◄</button>
+      <span id="lblPageInfo" style="font-weight: 700; font-size: 14px; color: #FFF;">0 / 0</span>
+      <button class="btn" onclick="nextPage()">►</button>
+    </div>
+    <button class="btn" id="btnFullscreen" onclick="togglePresentation(currentPage)">📺 Present (Ctrl+L)</button>
+  </header>
+
+  <div class="body-container">
+    <div class="left-panel" id="leftPanel">
+      
+      <div class="current-slide-header">
+        <div style="font-size: 11px; font-weight: 800; color: #FF5722; letter-spacing: 0.5px;" id="lblCurrentSlide">🔴 CURRENT SLIDE</div>
+
+        <div class="canvas-inline-toolbar" id="canvasToolbar">
+          <button class="tool-btn" id="btnToolPen" onclick="setTool('pen')" title="Highlighter / Pen">✏️ Pen</button>
+          <input type="color" id="penColorPicker" class="color-picker" value="#FF1744" title="Pen Color">
+          
+          <select id="penSizeSelect" style="background:#111115; color:#FFF; border:1px solid rgba(255,255,255,0.15); padding:2px 4px; border-radius:4px; font-size:11px; outline:none;" title="Stroke Size">
+            <option value="4">Thin</option>
+            <option value="8" selected>Medium</option>
+            <option value="16">Thick</option>
+            <option value="32">Highlighter</option>
+          </select>
+
+          <div class="tool-divider"></div>
+
+          <button class="tool-btn" id="btnToolLaser" onclick="setTool('laser')" title="Laser Pointer">🔴 Laser</button>
+
+          <div class="tool-divider"></div>
+
+          <button class="tool-btn" onclick="undoAnnotation()" title="Undo (Backspace)">↩️</button>
+          <button class="tool-btn" onclick="clearAnnotations()" title="Clear All (Right Click)">🗑️ Clear</button>
+        </div>
+      </div>
+
+      <div class="canvas-box" id="mainCanvasBox">
+        <canvas id="mainCanvas"></canvas>
+        <canvas id="transitionCanvas"></canvas>
+        <canvas id="overlayCanvas"></canvas>
+      </div>
+      
+      <div class="resizer-h" id="resizerTimer"></div>
+      
+      <div class="timer-panel" id="timerPanel">
+        <button class="btn btn-sm timer-toggle-btn" id="btnToggleTimerSidebar" onclick="toggleTimerSidebar()" title="Toggle Controls">⚙️</button>
+
+        <div class="timer-sidebar" id="timerSidebar">
+          <div style="font-weight: 700; color: #64B5F6; font-size: 12px; margin-bottom: 2px;" id="lblTimerTitle">⏱️ COUNTDOWN TIMER</div>
+
+          <div class="timer-row">
+            <span style="font-size: 11px; color: #AAA;" id="lblHr">Hr:</span>
+            <input type="number" id="timerHr" class="num-input" value="0" min="0" max="99" onchange="updateTimerFromInputs()">
+            <span style="font-size: 11px; color: #AAA;" id="lblMin">Min:</span>
+            <input type="number" id="timerMin" class="num-input" value="15" min="0" max="59" onchange="updateTimerFromInputs()">
+            <span style="font-size: 11px; color: #AAA;" id="lblSec">Sec:</span>
+            <input type="number" id="timerSec" class="num-input" value="0" min="0" max="99" onchange="updateTimerFromInputs()">
+          </div>
+
+          <div class="timer-row">
+            <select id="timerFmt" style="background:#111115; color:#FFF; border:1px solid rgba(255,255,255,0.12); padding:3px 6px; border-radius:6px; font-size: 11px; font-weight: bold; outline:none; width: 100%;" onchange="updateTimerFormat()">
+              <option value="hh:mm:ss">hh:mm:ss</option>
+              <option value="mm:ss">mm:ss</option>
+            </select>
+          </div>
+
+          <div class="timer-row">
+            <span style="font-size: 11px; color: #AAA;" id="lblMsg">Msg:</span>
+            <input type="text" id="timerCustomMsg" class="text-input" value="Time Up!!!" oninput="drawTimerText()">
+          </div>
+
+          <div class="timer-row">
+            <span style="font-size: 11px; color: #AAA;" id="lblTimerColor">Color:</span>
+            <input type="color" id="timerColorPicker" class="color-picker" value="#FFFFFF" onchange="drawTimerText()">
+          </div>
+        </div>
+
+        <div class="timer-canvas-container">
+          <canvas id="timerCanvas"></canvas>
+        </div>
+
+        <div class="timer-actions-right">
+          <button class="timer-action-btn timer-action-start" onclick="startTimer()" title="Start Timer">▶️ Start</button>
+          <button class="timer-action-btn" onclick="pauseTimer()" title="Pause Timer">⏸️ Pause</button>
+          <button class="timer-action-btn" onclick="resetTimer()" title="Reset Timer">🔄 Reset</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="resizer-v" id="resizerMain"></div>
+
+    <div class="right-panel" id="rightPanel">
+      <div class="next-box" id="nextBox">
+        <div style="font-size: 11px; font-weight: 800; color: #888899; margin-bottom: 6px; letter-spacing: 0.5px;" id="lblNextSlide">⏭ NEXT SLIDE</div>
+        <div class="canvas-box">
+          <canvas id="nextCanvas"></canvas>
+        </div>
+      </div>
+
+      <div class="resizer-h" id="resizerRight"></div>
+
+      <div class="notes-box">
+        <div class="notes-header">
+          <span style="font-size: 11px; font-weight: 800; color: #FF5722; letter-spacing: 0.5px;" id="lblSpeakerNotes">📝 SPEAKER NOTES</span>
+          
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <button class="btn btn-sm" onclick="changeNotesFontSize(-2)">A-</button>
+            <input type="number" id="numNotesSize" class="num-input" value="32" min="6" onchange="setNotesFontSizeDirect(this.value)">
+            <span style="font-size: 12px; color: #AAA;">pt</span>
+            <button class="btn btn-sm" onclick="changeNotesFontSize(2)">A+</button>
+          </div>
+        </div>
+        <textarea id="txtNotes" placeholder="Type notes for this slide..."></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="filmstrip" id="filmstrip" tabindex="0"></div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
