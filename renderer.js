@@ -2,7 +2,12 @@ const { ipcRenderer } = require('electron');
 const fs = require('fs');
 const path = require('path');
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+// ดึง pdfjsLib ที่โหลดผ่าน Script Tag บน window
+const pdfjsLib = window.pdfjsLib || window['pdfjs-dist/build/pdf'];
+
+if (pdfjsLib) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
 
 let pdfDoc = null;
 let currentPage = 1;
@@ -11,7 +16,7 @@ let totalPages = 0;
 // Multi-Selection & Transitions State
 let selectedPages = new Set([1]);
 let lastSelectedPage = 1;
-let slideTransitionsMap = {}; // { [pageNo]: 'none'|'fade'|'slide-left'|'slide-right'|'zoom' }
+let slideTransitionsMap = {}; 
 let globalTransition = 'none';
 
 // Timer State
@@ -32,53 +37,47 @@ let isNextPanelVisible = true;
 let isTimerVisible = true;
 let isTimerSidebarVisible = true;
 let isNotesVisible = true;
+let isFilmstripVisible = true;
 let notesFontSize = 32;
 let lastLeftPanelWidth = '60%';
+let lastFilmstripHeight = '155px';
 
-// Tool Engine States (Pen & Laser)
+// Tool Engine States
 let activeTool = 'none'; 
 let isDrawing = false;
+let isSpotlightLaserActive = false;
 let currentStroke = null;
 let annotationsMap = {};
-let laserPos = { visible: false, x: 0, y: 0 };
+let laserPos = { visible: false, x: 0.5, y: 0.5 };
 
 let activeRenderTasks = {
   mainCanvas: null,
   nextCanvas: null
 };
 
-let resizeAnimationFrame = null;
+let windowResizeTimer = null;
 
 const translations = {
   en: {
-    noFile: "No File Opened",
-    openFile: "📂 Open PDF",
-    btnCurrent: "🖼️ Current",
-    btnNext: "⏭️ Next Slide",
-    btnTimer: "⏱️ Timer",
-    btnNotes: "📝 Speaker Notes",
-    btnPresent: "📺 Present (Ctrl+L)",
-    currentSlide: "🔴 CURRENT SLIDE",
-    nextSlide: "⏭ NEXT SLIDE",
-    speakerNotes: "📝 SPEAKER NOTES",
-    timerTitle: "⏱️ COUNTDOWN TIMER",
-    hr: "Hr:", min: "Min:", sec: "Sec:", msg: "Msg:", timerColor: "Color:",
+    noFile: "No File Opened", openFile: "📂 Open PDF", btnCurrent: "🖼️ Current", btnNext: "⏭️ Next Slide",
+    btnTimer: "⏱️ Timer", btnNotes: "📝 Speaker Notes", btnPresent: "📺 Present (Ctrl+L)",
+    currentSlide: "🔴 CURRENT SLIDE", nextSlide: "⏭ NEXT SLIDE", speakerNotes: "📝 SPEAKER NOTES",
+    timerTitle: "⏱️ COUNTDOWN TIMER", hr: "Hr:", min: "Min:", sec: "Sec:", msg: "Msg:", timerColor: "Color:",
     notesPlaceholder: "Type notes for this slide..."
   },
   th: {
-    noFile: "ยังไม่ได้เปิดไฟล์",
-    openFile: "📂 เปิดไฟล์ PDF",
-    btnCurrent: "🖼️ Current",
-    btnNext: "⏭️ Next Slide",
-    btnTimer: "⏱️ ตัวนับเวลา",
-    btnNotes: "📝 โน้ตผู้พูด",
-    btnPresent: "📺 นำเสนอ (Ctrl+L)",
-    currentSlide: "🔴 CURRENT SLIDE",
-    nextSlide: "⏭ NEXT SLIDE",
-    speakerNotes: "📝 SPEAKER NOTES",
-    timerTitle: "⏱️ COUNTDOWN TIMER",
-    hr: "ชม.:", min: "นาที:", sec: "วิ.:", msg: "ข้อความ:", timerColor: "สี:",
+    noFile: "ยังไม่ได้เปิดไฟล์", openFile: "📂 เปิดไฟล์ PDF", btnCurrent: "🖼️ Current", btnNext: "⏭️ Next Slide",
+    btnTimer: "⏱️ ตัวนับเวลา", btnNotes: "📝 โน้ตผู้พูด", btnPresent: "📺 นำเสนอ (Ctrl+L)",
+    currentSlide: "🔴 CURRENT SLIDE", nextSlide: "⏭ NEXT SLIDE", speakerNotes: "📝 SPEAKER NOTES",
+    timerTitle: "⏱️ COUNTDOWN TIMER", hr: "ชม.:", min: "นาที:", sec: "วิ.:", msg: "ข้อความ:", timerColor: "สี:",
     notesPlaceholder: "บันทึกข้อความสำหรับสไลด์นี้..."
+  },
+  zh: {
+    noFile: "未打开文件", openFile: "📂 打开 PDF", btnCurrent: "🖼️ 当前", btnNext: "⏭️ 下一张",
+    btnTimer: "⏱️ 计时器", btnNotes: "📝 演讲者备注", btnPresent: "📺 演示 (Ctrl+L)",
+    currentSlide: "🔴 当前幻灯片", nextSlide: "⏭ 下一张幻灯片", speakerNotes: "📝 演讲者备注",
+    timerTitle: "⏱️ 倒计时器", hr: "小时:", min: "分钟:", sec: "秒:", msg: "提示:", timerColor: "颜色:",
+    notesPlaceholder: "输入本页幻灯片的备注..."
   }
 };
 
@@ -141,6 +140,16 @@ async function loadPDF(filePath, startPage = 1) {
 async function renderPageToCanvas(pageNo, canvasId) {
   if (!pdfDoc) return;
 
+  const mainCanvas = document.getElementById(canvasId);
+  if (!mainCanvas) return;
+
+  const container = mainCanvas.parentElement;
+  if (!container) return;
+
+  const cw = container.clientWidth;
+  const ch = container.clientHeight;
+  if (cw === 0 || ch === 0) return;
+
   if (activeRenderTasks[canvasId]) {
     try {
       await activeRenderTasks[canvasId].cancel();
@@ -150,12 +159,7 @@ async function renderPageToCanvas(pageNo, canvasId) {
 
   try {
     const page = await pdfDoc.getPage(pageNo);
-    const mainCanvas = document.getElementById(canvasId);
-    if (!mainCanvas) return;
-
-    const container = mainCanvas.parentElement;
-    const cw = container.clientWidth || window.innerWidth;
-    const ch = container.clientHeight || window.innerHeight;
+    if (!mainCanvas.parentElement) return;
 
     const unscaledViewport = page.getViewport({ scale: 1.0 });
     const scale = Math.min(cw / unscaledViewport.width, ch / unscaledViewport.height);
@@ -163,8 +167,8 @@ async function renderPageToCanvas(pageNo, canvasId) {
 
     const offscreenCanvas = document.createElement('canvas');
     const offscreenCtx = offscreenCanvas.getContext('2d');
-    offscreenCanvas.width = viewport.width;
-    offscreenCanvas.height = viewport.height;
+    offscreenCanvas.width = Math.round(viewport.width);
+    offscreenCanvas.height = Math.round(viewport.height);
 
     const renderTask = page.render({ canvasContext: offscreenCtx, viewport: viewport });
     activeRenderTasks[canvasId] = renderTask;
@@ -172,9 +176,15 @@ async function renderPageToCanvas(pageNo, canvasId) {
     await renderTask.promise;
     activeRenderTasks[canvasId] = null;
 
+    const targetWidth = Math.round(viewport.width);
+    const targetHeight = Math.round(viewport.height);
+
+    if (mainCanvas.width !== targetWidth || mainCanvas.height !== targetHeight) {
+      mainCanvas.width = targetWidth;
+      mainCanvas.height = targetHeight;
+    }
+
     const ctx = mainCanvas.getContext('2d');
-    mainCanvas.width = viewport.width;
-    mainCanvas.height = viewport.height;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.drawImage(offscreenCanvas, 0, 0);
 
@@ -188,9 +198,6 @@ async function renderPageToCanvas(pageNo, canvasId) {
   }
 }
 
-// ------------------------------------------------------------------------------
-// Smooth Dissolve Transition Engine (300 ms Duration)
-// ------------------------------------------------------------------------------
 function playSlideTransitionEffect(transType, renderNewPageTask) {
   const mainCanvas = document.getElementById('mainCanvas');
   const transCanvas = document.getElementById('transitionCanvas');
@@ -202,11 +209,6 @@ function playSlideTransitionEffect(transType, renderNewPageTask) {
 
   transCanvas.width = mainCanvas.width;
   transCanvas.height = mainCanvas.height;
-  transCanvas.style.position = 'absolute';
-  transCanvas.style.left = `${mainCanvas.offsetLeft}px`;
-  transCanvas.style.top = `${mainCanvas.offsetTop}px`;
-  transCanvas.style.width = `${mainCanvas.clientWidth}px`;
-  transCanvas.style.height = `${mainCanvas.clientHeight}px`;
 
   const tCtx = transCanvas.getContext('2d');
   tCtx.clearRect(0, 0, transCanvas.width, transCanvas.height);
@@ -220,7 +222,6 @@ function playSlideTransitionEffect(transType, renderNewPageTask) {
 
   if (renderNewPageTask) renderNewPageTask();
 
-  // กำหนด Transition Duration เป็น 300 ms (0.3s) ให้ภาพละลายสมูทพอดี
   transCanvas.style.transition = 'opacity 0.3s ease-out, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
 
   requestAnimationFrame(() => {
@@ -287,9 +288,6 @@ async function renderThumbnails() {
 
     const label = document.createElement('span');
     label.innerText = `Slide ${pageNum}`;
-    label.style.fontSize = '11px';
-    label.style.marginTop = '4px';
-    label.style.color = '#AAA';
     card.appendChild(label);
 
     filmstrip.appendChild(card);
@@ -310,9 +308,6 @@ async function renderThumbnails() {
   updateThumbnailSelectionUI();
 }
 
-// ------------------------------------------------------------------------------
-// Multi-Selection & Transitions Logic
-// ------------------------------------------------------------------------------
 function handleThumbnailClick(e, pageNum) {
   e.stopPropagation();
 
@@ -434,7 +429,7 @@ function updatePageInfo() {
 }
 
 // ------------------------------------------------------------------------------
-// Tool Engine (Pen & Laser)
+// Tool Engine (Pen & Logitech Spotlight Laser)
 // ------------------------------------------------------------------------------
 function setTool(toolName) {
   if (activeTool === toolName) {
@@ -463,10 +458,10 @@ function syncOverlayCanvasDimensions(mainCanvas) {
   const overlayCanvas = document.getElementById('overlayCanvas');
   if (!overlayCanvas || !mainCanvas) return;
 
-  overlayCanvas.width = mainCanvas.width;
-  overlayCanvas.height = mainCanvas.height;
-  overlayCanvas.style.width = `${mainCanvas.clientWidth}px`;
-  overlayCanvas.style.height = `${mainCanvas.clientHeight}px`;
+  if (overlayCanvas.width !== mainCanvas.width || overlayCanvas.height !== mainCanvas.height) {
+    overlayCanvas.width = mainCanvas.width;
+    overlayCanvas.height = mainCanvas.height;
+  }
   
   redrawOverlay();
 }
@@ -549,7 +544,8 @@ function clearAnnotations() {
 
 function initOverlayCanvasEvents() {
   const overlayCanvas = document.getElementById('overlayCanvas');
-  if (!overlayCanvas || isPresentationMode) return;
+  const mainCanvasBox = document.getElementById('mainCanvasBox');
+  if (!overlayCanvas || !mainCanvasBox || isPresentationMode) return;
 
   overlayCanvas.addEventListener('contextmenu', (e) => {
     e.preventDefault();
@@ -560,11 +556,11 @@ function initOverlayCanvasEvents() {
     if (e.button === 2) return;
 
     const rect = overlayCanvas.getBoundingClientRect();
-    const normX = (e.clientX - rect.left) / rect.width;
-    const normY = (e.clientY - rect.top) / rect.height;
 
     if (activeTool === 'pen') {
       isDrawing = true;
+      const normX = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const normY = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
       const color = document.getElementById('penColorPicker').value || '#FF1744';
       const size = parseInt(document.getElementById('penSizeSelect').value, 10) || 8;
       
@@ -575,27 +571,33 @@ function initOverlayCanvasEvents() {
         points: [{ x: normX, y: normY }]
       };
       redrawOverlay();
-    } else if (activeTool === 'laser') {
+    } else {
+      isSpotlightLaserActive = true;
       overlayCanvas.style.cursor = 'none';
-      laserPos = { visible: true, x: normX, y: normY };
+
+      laserPos = { visible: true, x: 0.5, y: 0.5 };
       redrawOverlay();
       ipcRenderer.send('sync-laser', laserPos);
     }
   });
 
-  overlayCanvas.addEventListener('mousemove', (e) => {
+  window.addEventListener('mousemove', (e) => {
+    if (!overlayCanvas) return;
     const rect = overlayCanvas.getBoundingClientRect();
-    const normX = (e.clientX - rect.left) / rect.width;
-    const normY = (e.clientY - rect.top) / rect.height;
 
     if (activeTool === 'pen' && isDrawing && currentStroke) {
+      const normX = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const normY = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
       currentStroke.points.push({ x: normX, y: normY });
       redrawOverlay();
       ipcRenderer.send('sync-annotations', { 
         pageNo: currentPage, 
         strokes: [...(annotationsMap[currentPage] || []), currentStroke] 
       });
-    } else if (activeTool === 'laser' && (e.buttons === 1 || e.buttons === 3)) {
+    } else if (isSpotlightLaserActive) {
+      const normX = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const normY = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+
       laserPos = { visible: true, x: normX, y: normY };
       redrawOverlay();
       ipcRenderer.send('sync-laser', laserPos);
@@ -612,18 +614,16 @@ function initOverlayCanvasEvents() {
       ipcRenderer.send('sync-annotations', { pageNo: currentPage, strokes: annotationsMap[currentPage] });
     }
 
-    if (laserPos.visible) {
+    if (isSpotlightLaserActive || laserPos.visible) {
+      isSpotlightLaserActive = false;
       laserPos.visible = false;
-      if (activeTool === 'laser') {
-        overlayCanvas.style.cursor = 'default';
-      }
+      overlayCanvas.style.cursor = (activeTool === 'pen') ? 'crosshair' : 'default';
       redrawOverlay();
       ipcRenderer.send('sync-laser', laserPos);
     }
   };
 
-  overlayCanvas.addEventListener('mouseup', stopAction);
-  overlayCanvas.addEventListener('mouseleave', stopAction);
+  window.addEventListener('mouseup', stopAction);
 }
 
 // ------------------------------------------------------------------------------
@@ -696,7 +696,10 @@ function updateOverallLayout() {
     resizerTimer.style.display = 'none';
   }
 
-  triggerSmoothResize();
+  drawTimerText();
+  requestAnimationFrame(() => {
+    renderAllViews();
+  });
 }
 
 function toggleCurrentPanel() {
@@ -734,7 +737,10 @@ function toggleTimerSidebar() {
       if (btn) btn.innerText = '⚙️ Controls';
     }
   }
-  triggerSmoothResize();
+  drawTimerText();
+  requestAnimationFrame(() => {
+    renderAllViews();
+  });
 }
 
 function toggleNotes() {
@@ -742,6 +748,27 @@ function toggleNotes() {
   isNotesVisible = !isNotesVisible;
   if (btn) btn.classList.toggle('btn-off', !isNotesVisible);
   updateOverallLayout();
+}
+
+function toggleFilmstrip() {
+  const container = document.getElementById('filmstripContainer');
+  const btn = document.getElementById('btnToggleFilmstrip');
+  isFilmstripVisible = !isFilmstripVisible;
+
+  if (container) {
+    if (isFilmstripVisible) {
+      container.classList.remove('collapsed');
+      container.style.height = lastFilmstripHeight || '155px';
+      if (btn) btn.innerText = '▼';
+    } else {
+      container.classList.add('collapsed');
+      if (btn) btn.innerText = '▲';
+    }
+  }
+  drawTimerText();
+  requestAnimationFrame(() => {
+    renderAllViews();
+  });
 }
 
 function changeNotesFontSize(delta) { setNotesFontSizeDirect(notesFontSize + delta); }
@@ -782,10 +809,17 @@ function drawTimerText() {
   if (!canvas || isPresentationMode || !isTimerVisible) return;
   const ctx = canvas.getContext('2d');
 
-  const cw = canvas.parentElement.clientWidth || 200;
-  const ch = canvas.parentElement.clientHeight || 80;
-  canvas.width = cw;
-  canvas.height = ch;
+  const container = canvas.parentElement;
+  if (!container) return;
+
+  const cw = container.clientWidth || 200;
+  const ch = container.clientHeight || 80;
+  if (cw === 0 || ch === 0) return;
+
+  if (canvas.width !== cw || canvas.height !== ch) {
+    canvas.width = cw;
+    canvas.height = ch;
+  }
   ctx.clearRect(0, 0, cw, ch);
 
   const customMsg = (document.getElementById('timerCustomMsg').value || 'Time Up!!!').trim();
@@ -898,16 +932,9 @@ function togglePresentation(startPage = currentPage) {
   ipcRenderer.send('toggle-presentation', startPage);
 }
 
-function triggerSmoothResize() {
-  drawTimerText();
-  if (resizeAnimationFrame) cancelAnimationFrame(resizeAnimationFrame);
-  resizeAnimationFrame = requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      renderAllViews();
-    });
-  });
-}
-
+// ------------------------------------------------------------------------------
+// Resizing Logic
+// ------------------------------------------------------------------------------
 function initResizablePanes() {
   if (isPresentationMode) return;
 
@@ -922,18 +949,24 @@ function initResizablePanes() {
       if (newWidth > 20 && newWidth < 80) {
         leftPanel.style.width = `${newWidth}%`;
         lastLeftPanelWidth = `${newWidth}%`;
-        triggerSmoothResize();
       }
     };
     const onMouseUp = () => {
       resizerMain.classList.remove('dragging');
+      document.body.classList.remove('is-dragging');
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
+      
+      requestAnimationFrame(() => {
+        drawTimerText();
+        renderAllViews();
+      });
     };
     resizerMain.addEventListener('mousedown', (e) => {
       x = e.clientX;
       leftWidth = leftPanel.getBoundingClientRect().width;
       resizerMain.classList.add('dragging');
+      document.body.classList.add('is-dragging');
       document.addEventListener('mousemove', onMouseMove);
       document.addEventListener('mouseup', onMouseUp);
     });
@@ -949,18 +982,23 @@ function initResizablePanes() {
       const newH = timerHeight - dy;
       if (newH > 60 && newH < 350) {
         timerPanel.style.height = `${newH}px`;
-        triggerSmoothResize();
+        drawTimerText();
       }
     };
     const onMouseUp = () => {
       resizerTimer.classList.remove('dragging');
+      document.body.classList.remove('is-dragging');
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
+      requestAnimationFrame(() => {
+        renderAllViews();
+      });
     };
     resizerTimer.addEventListener('mousedown', (e) => {
       y = e.clientY;
       timerHeight = timerPanel.getBoundingClientRect().height;
       resizerTimer.classList.add('dragging');
+      document.body.classList.add('is-dragging');
       document.addEventListener('mousemove', onMouseMove);
       document.addEventListener('mouseup', onMouseUp);
     });
@@ -976,17 +1014,54 @@ function initResizablePanes() {
       const parentH = nextBox.parentElement.clientHeight;
       const newH = Math.max(80, Math.min(parentH - 80, nextHeight + dy));
       nextBox.style.height = `${newH}px`;
-      triggerSmoothResize();
     };
     const onMouseUp = () => {
       resizerRight.classList.remove('dragging');
+      document.body.classList.remove('is-dragging');
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
+      requestAnimationFrame(() => {
+        renderAllViews();
+      });
     };
     resizerRight.addEventListener('mousedown', (e) => {
       y = e.clientY;
       nextHeight = nextBox.getBoundingClientRect().height;
       resizerRight.classList.add('dragging');
+      document.body.classList.add('is-dragging');
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    });
+  }
+
+  const resizerFilmstrip = document.getElementById('resizerFilmstrip');
+  const filmstrip = document.getElementById('filmstrip');
+  const filmstripContainer = document.getElementById('filmstripContainer');
+
+  if (resizerFilmstrip && filmstripContainer && filmstrip) {
+    let y = 0, containerHeight = 0;
+    const onMouseMove = (e) => {
+      const dy = e.clientY - y;
+      const newH = Math.max(70, Math.min(400, containerHeight - dy));
+      filmstrip.style.height = `${newH}px`;
+      filmstripContainer.style.height = `${newH}px`;
+      lastFilmstripHeight = `${newH}px`;
+    };
+    const onMouseUp = () => {
+      resizerFilmstrip.classList.remove('dragging');
+      document.body.classList.remove('is-dragging');
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      requestAnimationFrame(() => {
+        renderAllViews();
+      });
+    };
+    resizerFilmstrip.addEventListener('mousedown', (e) => {
+      if (!isFilmstripVisible) return;
+      y = e.clientY;
+      containerHeight = filmstripContainer.getBoundingClientRect().height;
+      resizerFilmstrip.classList.add('dragging');
+      document.body.classList.add('is-dragging');
       document.addEventListener('mousemove', onMouseMove);
       document.addEventListener('mouseup', onMouseUp);
     });
@@ -1046,7 +1121,11 @@ window.addEventListener('keydown', (e) => {
 });
 
 window.addEventListener('resize', () => {
-  triggerSmoothResize();
+  drawTimerText();
+  if (windowResizeTimer) clearTimeout(windowResizeTimer);
+  windowResizeTimer = setTimeout(() => {
+    renderAllViews();
+  }, 100);
 });
 
 ipcRenderer.on('open-direct-pdf', (event, filePath) => loadPDF(filePath));
@@ -1069,6 +1148,14 @@ ipcRenderer.on('change-language-menu', (event, lang) => changeLanguage(lang));
 ipcRenderer.on('trigger-open-file', () => openFileDialog());
 ipcRenderer.on('trigger-toggle-presentation', (event, startFromFirst) => {
   togglePresentation(startFromFirst ? 1 : currentPage);
+});
+
+ipcRenderer.on('toggle-panel', (event, panelName) => {
+  if (panelName === 'current') toggleCurrentPanel();
+  else if (panelName === 'next') toggleNextPanel();
+  else if (panelName === 'timer') toggleTimer();
+  else if (panelName === 'notes') toggleNotes();
+  else if (panelName === 'filmstrip') toggleFilmstrip();
 });
 
 ipcRenderer.on('receive-annotations', (event, data) => {

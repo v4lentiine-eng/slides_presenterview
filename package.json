@@ -1,13 +1,28 @@
 {
   "name": "slides-presenterview",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": "v4lentiine-eng",
-  "description": "Electron PDF Presenter View App",
+  "description": "Cross-Platform Electron PDF Presenter View Application",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder --publish never",
-    "dist": "electron-builder --publish never"
+    "build": "electron-builder"
+  },
+  "keywords": [
+    "electron",
+    "pdf",
+    "presenter-view",
+    "presentation",
+    "slides"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "pdfjs-dist": "^3.11.174"
+  },
+  "devDependencies": {
+    "electron": "^28.2.0",
+    "electron-builder": "^24.9.0"
   },
   "build": {
     "appId": "com.slides.presenterview",
@@ -15,22 +30,27 @@
     "directories": {
       "output": "dist"
     },
+    "fileAssociations": [
+      {
+        "ext": "pdf",
+        "name": "PDF Document",
+        "role": "Viewer",
+        "mimeType": "application/pdf"
+      }
+    ],
     "win": {
-      "target": ["nsis", "portable"]
+      "target": ["nsis", "portable"],
+      "icon": "icon.png"
     },
     "mac": {
       "target": ["dmg", "zip"],
+      "icon": "icon.png",
       "category": "public.app-category.productivity"
     },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "icon": "icon.png",
+      "category": "Office"
     }
-  },
-  "devDependencies": {
-    "electron": "^28.0.0",
-    "electron-builder": "^24.13.3"
   }
 }

@@ -3,7 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <title>Slides Presenterview</title>
+
+  <!-- ป้องกัน Node Integration Conflict บน Windows 11 -->
+  <script>
+    if (typeof module === 'object') {
+      window.tempModule = module;
+      module = undefined;
+    }
+  </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    if (window.tempModule) {
+      module = window.tempModule;
+    }
+  </script>
+
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
     
@@ -15,6 +29,11 @@
       display: flex; 
       flex-direction: column; 
       overflow: hidden; 
+    }
+
+    body.is-dragging, body.is-dragging * {
+      transition: none !important;
+      user-select: none !important;
     }
     
     header { 
@@ -37,14 +56,24 @@
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-      filter: drop-shadow(0 4px 10px rgba(255, 87, 34, 0.4));
+      opacity: 0.72;
+      transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), filter 0.3s ease;
       margin-right: 4px;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .app-logo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 8px;
     }
 
     .app-logo:hover {
-      transform: scale(1.12) rotate(2deg);
-      filter: drop-shadow(0 6px 16px rgba(255, 87, 34, 0.75));
+      opacity: 1;
+      transform: scale(1.08);
+      filter: drop-shadow(0 0 10px rgba(41, 182, 246, 0.6));
     }
     
     .file-tag { 
@@ -58,7 +87,6 @@
       overflow: hidden; 
       text-overflow: ellipsis; 
       white-space: nowrap; 
-      transition: all 0.2s ease;
     }
     
     .btn { 
@@ -69,24 +97,21 @@
       border-radius: 8px; 
       font-weight: 600; 
       cursor: pointer; 
-      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); 
+      transition: background 0.15s ease, border-color 0.15s ease; 
       font-size: 12px; 
       display: inline-flex; 
       align-items: center; 
       justify-content: center; 
       gap: 5px; 
       outline: none;
-      backdrop-filter: blur(10px);
     }
 
     .btn:hover { 
       background: rgba(255, 255, 255, 0.12); 
       border-color: rgba(255, 255, 255, 0.2);
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
     }
 
-    .btn:active { transform: scale(0.96) translateY(0); }
+    .btn:active { transform: scale(0.97); }
 
     .btn-orange { 
       background: linear-gradient(135deg, #FF5722 0%, #E64A19 100%); 
@@ -151,7 +176,6 @@
       text-align: center;
       outline: none;
       font-weight: bold;
-      transition: all 0.2s;
     }
 
     .num-input:focus, .text-input:focus { 
@@ -168,7 +192,6 @@
       font-size: 11px;
       outline: none;
       width: 100%;
-      transition: all 0.2s;
     }
 
     .color-picker {
@@ -178,9 +201,7 @@
       background: transparent;
       cursor: pointer;
       border-radius: 4px;
-      transition: transform 0.2s;
     }
-    .color-picker:hover { transform: scale(1.08); }
 
     .body-container { flex: 1; display: flex; padding: 10px; gap: 0; overflow: hidden; position: relative; }
     
@@ -196,7 +217,6 @@
       border: 1px solid rgba(255, 255, 255, 0.05);
       box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
       position: relative;
-      transition: width 0.15s cubic-bezier(0.16, 1, 0.3, 1), flex 0.15s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
     .current-slide-header {
@@ -225,7 +245,6 @@
       padding: 3px 8px;
       border-radius: 4px;
       cursor: pointer;
-      transition: all 0.2s;
       display: inline-flex;
       align-items: center;
       gap: 4px;
@@ -248,13 +267,12 @@
       flex-direction: column; 
       min-width: 250px; 
       overflow: hidden; 
-      transition: width 0.15s cubic-bezier(0.16, 1, 0.3, 1), flex 0.15s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
-    .resizer-v { width: 10px; cursor: col-resize; background: transparent; transition: all 0.2s; z-index: 10; position: relative; }
+    .resizer-v { width: 10px; cursor: col-resize; background: transparent; z-index: 10; position: relative; }
     .resizer-v:hover, .resizer-v.dragging { background: rgba(255, 87, 34, 0.4); box-shadow: 0 0 10px rgba(255, 87, 34, 0.5); }
 
-    .resizer-h { height: 10px; cursor: row-resize; background: transparent; transition: all 0.2s; z-index: 10; flex-shrink: 0; }
+    .resizer-h { height: 10px; cursor: row-resize; background: transparent; z-index: 10; flex-shrink: 0; }
     .resizer-h:hover, .resizer-h.dragging { background: rgba(255, 87, 34, 0.4); box-shadow: 0 0 10px rgba(255, 87, 34, 0.5); }
 
     .canvas-box { 
@@ -272,14 +290,24 @@
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
     }
 
-    canvas { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+    canvas { 
+      max-width: 100%; 
+      max-height: 100%; 
+      width: 100%;
+      height: 100%;
+      object-fit: contain; 
+      display: block; 
+    }
 
     #transitionCanvas {
       position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
       z-index: 4;
       pointer-events: none;
       opacity: 0;
-      transform-origin: center center;
     }
     
     #overlayCanvas {
@@ -331,7 +359,7 @@
       padding-top: 36px;
       border-radius: 8px;
       border: 1px solid rgba(255, 255, 255, 0.08);
-      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: width 0.2s ease, opacity 0.2s ease;
       overflow-y: auto;
       overflow-x: hidden;
     }
@@ -393,17 +421,13 @@
       align-items: center;
       justify-content: center;
       gap: 5px;
-      transition: all 0.2s ease;
       outline: none;
     }
 
     .timer-action-btn:hover {
       background: rgba(255, 255, 255, 0.15);
       border-color: rgba(255, 255, 255, 0.25);
-      transform: scale(1.03);
     }
-
-    .timer-action-btn:active { transform: scale(0.96); }
 
     .timer-action-start {
       background: linear-gradient(135deg, rgba(76, 175, 80, 0.2) 0%, rgba(56, 142, 60, 0.3) 100%);
@@ -427,7 +451,6 @@
       min-height: 0; 
       flex-shrink: 0; 
       border: 1px solid rgba(255, 255, 255, 0.05);
-      transition: height 0.15s cubic-bezier(0.16, 1, 0.3, 1), flex 0.15s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
     .notes-box { 
@@ -455,32 +478,81 @@
       font-size: 32px; 
       outline: none; 
       line-height: 1.4;
-      transition: border-color 0.2s;
     }
     textarea:focus { border-color: rgba(255, 87, 34, 0.5); }
 
+    .filmstrip-container {
+      position: relative;
+      margin: 0 10px 10px 10px;
+      flex-shrink: 0;
+    }
+
+    .filmstrip-toggle-btn {
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 25;
+      background: #1A1A20;
+      color: #FF5722;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      width: 44px;
+      height: 20px;
+      font-size: 11px;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+      outline: none;
+    }
+
+    .filmstrip-toggle-btn:hover {
+      background: #FF5722;
+      color: #FFF;
+      box-shadow: 0 0 12px rgba(255, 87, 34, 0.6);
+    }
+
     .filmstrip { 
       height: 155px; 
+      min-height: 70px;
+      max-height: 400px;
       background: #16161A; 
-      margin: 0 10px 10px 10px; 
       border-radius: 12px; 
       display: flex; 
       align-items: center; 
       padding: 10px 14px; 
       gap: 12px; 
       overflow-x: auto; 
+      overflow-y: hidden; 
       flex-shrink: 0; 
       border: 1px solid rgba(255, 255, 255, 0.05);
       outline: none;
+      position: relative;
     }
 
-    .filmstrip:focus {
-      border-color: rgba(41, 182, 246, 0.3);
+    .filmstrip-container.collapsed {
+      height: 0px !important;
+      margin-bottom: 0px !important;
+      overflow: visible;
     }
-    
+
+    .filmstrip-container.collapsed .filmstrip {
+      display: none !important;
+    }
+
+    .filmstrip-container.collapsed .filmstrip-toggle-btn {
+      top: -22px;
+      background: rgba(255, 87, 34, 0.2);
+      border-color: #FF5722;
+    }
+
     .thumb-card { 
-      min-width: 130px; 
-      height: 128px; 
+      height: calc(100% - 8px);
+      aspect-ratio: 4 / 3;
+      min-width: 90px;
       background: #202026; 
       border-radius: 8px; 
       display: flex; 
@@ -489,13 +561,13 @@
       justify-content: center; 
       cursor: pointer; 
       border: 2px solid transparent; 
-      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); 
       position: relative;
+      flex-shrink: 0;
+      padding: 6px;
     }
     
     .thumb-card:hover { 
       background: #2A2A32; 
-      transform: translateY(-2px);
     }
     
     .thumb-card.active { 
@@ -523,11 +595,30 @@
       display: none;
     }
 
-    .thumb-card canvas { height: 85px; width: auto; max-width: 110px; border-radius: 4px; pointer-events: none; }
+    .thumb-card canvas { 
+      flex: 1;
+      width: auto;
+      max-width: 100%;
+      max-height: calc(100% - 18px);
+      object-fit: contain;
+      border-radius: 4px; 
+      pointer-events: none; 
+    }
+
+    .thumb-card span {
+      font-size: 11px;
+      margin-top: 3px;
+      color: #AAA;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow: hidden;
+      max-width: 100%;
+    }
 
     body.presentation-mode header,
     body.presentation-mode .right-panel, 
-    body.presentation-mode .filmstrip, 
+    body.presentation-mode .filmstrip-container, 
+    body.presentation-mode #resizerFilmstrip, 
     body.presentation-mode .timer-panel, 
     body.presentation-mode .resizer-v, 
     body.presentation-mode .resizer-h,
@@ -542,28 +633,7 @@
 <body>
   <header>
     <div class="app-logo" title="Slides Presenterview">
-      <svg width="38" height="38" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="logoG1" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#FF7043" />
-            <stop offset="100%" stop-color="#D84315" />
-          </linearGradient>
-          <linearGradient id="logoG2" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#FFA726" />
-            <stop offset="100%" stop-color="#FF5722" />
-          </linearGradient>
-          <linearGradient id="logoG3" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.9" />
-            <stop offset="100%" stop-color="#ECEFF1" stop-opacity="0.4" />
-          </linearGradient>
-        </defs>
-        <rect x="6" y="8" width="28" height="20" rx="3" fill="url(#logoG1)" opacity="0.6" transform="rotate(-6 20 18)" />
-        <rect x="11" y="12" width="28" height="20" rx="3" fill="url(#logoG2)" opacity="0.85" transform="rotate(-2 25 22)" />
-        <rect x="14" y="16" width="28" height="20" rx="3" fill="#18181C" stroke="url(#logoG3)" stroke-width="1.5" />
-        <rect x="17" y="19" width="22" height="14" rx="1.5" fill="url(#logoG2)" />
-        <polygon points="25,23 32,26 25,29" fill="#FFFFFF" />
-        <path d="M22 37 L28 37 M25 36 L25 41 M20 41 L30 41" stroke="#FF7043" stroke-width="2" stroke-linecap="round" />
-      </svg>
+      <img src="icon.png" alt="Slides Presenterview Logo">
     </div>
 
     <div class="file-tag" id="lblFileTag">No File Opened</div>
@@ -702,7 +772,12 @@
     </div>
   </div>
 
-  <div class="filmstrip" id="filmstrip" tabindex="0"></div>
+  <div class="resizer-h" id="resizerFilmstrip" title="Drag to resize All Slides panel"></div>
+
+  <div class="filmstrip-container" id="filmstripContainer">
+    <button class="filmstrip-toggle-btn" id="btnToggleFilmstrip" onclick="toggleFilmstrip()" title="Toggle All Slides Panel">▼</button>
+    <div class="filmstrip" id="filmstrip" tabindex="0"></div>
+  </div>
 
   <script src="renderer.js"></script>
 </body>
